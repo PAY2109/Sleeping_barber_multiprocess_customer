@@ -1,42 +1,47 @@
 #include <windows.h>
 #include <stdio.h>
 #include <iostream>
+#include <random>
 
-// This process opens a handle to a mutex created by another process.
 
 DWORD WINAPI customer(LPVOID);
 
 int main(void) {
-    // Create worker threads
+
     HANDLE customerThread;
     DWORD ThreadID;
+    int clientamount = 300;
+    for (int i = 0; i < clientamount; i++){
+        customerThread = CreateThread(
+                NULL,       // default security attributes
+                0,          // default stack size
+                (LPTHREAD_START_ROUTINE) customer,
+                NULL,       // no thread function arguments
+                0,          // default creation flags
+                &ThreadID); // receive thread identifier
+        if (customerThread == NULL) {
+            printf("CreateThread error: %d\n", GetLastError());
+            return 1;
+        }
 
-    customerThread = CreateThread(
-            NULL,       // default security attributes
-            0,          // default stack size
-            (LPTHREAD_START_ROUTINE) customer,
-            NULL,       // no thread function arguments
-            0,          // default creation flags
-            &ThreadID); // receive thread identifier
-
-    if (customerThread == NULL) {
-        printf("CreateThread error: %d\n", GetLastError());
-        return 1;
+        WaitForSingleObject(customerThread, INFINITE);
+        CloseHandle(customerThread);
     }
 
 
-    // Wait for all threads to terminate
-
-    WaitForSingleObject(customerThread, INFINITE);
-    CloseHandle(customerThread);
 
     return 0;
 }
 
 
 DWORD WINAPI customer(LPVOID lpParam) {
-    // lpParam not used in this example
+    // lpParam not used
     UNREFERENCED_PARAMETER(lpParam);
+
+    std::random_device rd; // obtain a random number from hardware
+    std::mt19937 eng(rd()); // seed the generator
+    std::uniform_int_distribution<> distr(2000, 20000); // define the range
+
     HANDLE barberReady;
     HANDLE accessWRSeats;
     HANDLE custReady;
@@ -66,9 +71,6 @@ DWORD WINAPI customer(LPVOID lpParam) {
     else printf("OpenMutex successfully opened the mutex.\n");
 
     DWORD dwWaitResult;
-    int i = 0;
-    while (i < 1) {
-        // Try to enter the semaphore gate.
 
         dwWaitResult = WaitForSingleObject(
                 accessWRSeats,   // handle to semaphore
@@ -93,9 +95,9 @@ DWORD WINAPI customer(LPVOID lpParam) {
                 printf("Customer %d: has gone (waiting room is full)\n", GetCurrentThreadId());
                 break;
         }
-        // i++;
-        Sleep(2);
-    }
+    printf("Customer %d: is leaving (got a haircut) \n", GetCurrentThreadId());
+        Sleep(distr(eng));
+
     CloseHandle(barberReady);
     CloseHandle(accessWRSeats);
     CloseHandle(custReady);
