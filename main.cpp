@@ -45,6 +45,7 @@ DWORD WINAPI customer(LPVOID lpParam) {
     HANDLE barberReady;
     HANDLE accessWRSeats;
     HANDLE custReady;
+    HANDLE seatBelt;
 
     barberReady = OpenSemaphore(SEMAPHORE_ALL_ACCESS,// request full access
                                 FALSE,// handle not inheritable
@@ -52,7 +53,7 @@ DWORD WINAPI customer(LPVOID lpParam) {
 
     if (barberReady == nullptr)
         printf("OpenMutex error: %d\n", GetLastError());
-    else printf("OpenMutex successfully opened the mutex.\n");
+    //else printf("OpenMutex successfully opened the mutex.\n");
 
     accessWRSeats = OpenSemaphore(SEMAPHORE_ALL_ACCESS,// request full access
                                   FALSE,// handle not inheritable
@@ -60,7 +61,7 @@ DWORD WINAPI customer(LPVOID lpParam) {
 
     if (accessWRSeats == nullptr)
         printf("OpenMutex error: %d\n", GetLastError());
-    else printf("OpenMutex successfully opened the mutex.\n");
+ //   else printf("OpenMutex successfully opened the mutex.\n");
 
     custReady = OpenSemaphore(SEMAPHORE_ALL_ACCESS,// request full access
                               FALSE,// handle not inheritable
@@ -68,38 +69,49 @@ DWORD WINAPI customer(LPVOID lpParam) {
 
     if (custReady == nullptr)
         printf("OpenMutex error: %d\n", GetLastError());
-    else printf("OpenMutex successfully opened the mutex.\n");
+  //  else printf("OpenMutex successfully opened the mutex.\n");
+
+    seatBelt = OpenSemaphore(SEMAPHORE_ALL_ACCESS,// request full access
+                              FALSE,// handle not inheritable
+                              TEXT("seatBelt"));// object name
+
+    if (seatBelt == nullptr)
+        printf("OpenMutex error: %d\n", GetLastError());
+   // else printf("OpenMutex successfully opened the mutex.\n");
 
     DWORD dwWaitResult;
+    Sleep(distr(eng));
+    printf("Customer %d: has arrived to the barbershop\n", GetCurrentThreadId());
+    dwWaitResult = WaitForSingleObject(
+            accessWRSeats,   // handle to semaphore
+            0);           // zero-second time-out interval
 
-        dwWaitResult = WaitForSingleObject(
-                accessWRSeats,   // handle to semaphore
-                0);           // zero-second time-out interval
+    switch (dwWaitResult) {
+        // The semaphore object was signaled.
+        case WAIT_OBJECT_0:
+            printf("Customer %d: is in the waiting room\n", GetCurrentThreadId());
+            ReleaseSemaphore(
+                    custReady,  // handle to semaphore
+                    1,            // increase count by one
+                    nullptr);
+            printf("Customer %d: is waiting\n", GetCurrentThreadId());
+            WaitForSingleObject(barberReady, INFINITE);
 
-        switch (dwWaitResult) {
-            // The semaphore object was signaled.
-            case WAIT_OBJECT_0:
-                printf("Customer %d: is in the waiting room\n", GetCurrentThreadId());
-                ReleaseSemaphore(
-                        custReady,  // handle to semaphore
-                        1,            // increase count by one
-                        nullptr);
-                printf("Customer %d: is waiting\n", GetCurrentThreadId());
-                WaitForSingleObject(barberReady, INFINITE);
+            printf("Customer %d: is getting a haircut\n", GetCurrentThreadId());
+            WaitForSingleObject(seatBelt, INFINITE);
+            printf("Customer %d: is leaving (got a haircut)\n", GetCurrentThreadId());
+            break;
 
-                printf("Customer %d: is getting a haircut\n", GetCurrentThreadId());
-                break;
+            // The semaphore was nonsignaled, so a time-out occurred.
+        case WAIT_TIMEOUT:
+            printf("Customer %d: has gone (waiting room is full)\n", GetCurrentThreadId());
+            break;
+    }
 
-                // The semaphore was nonsignaled, so a time-out occurred.
-            case WAIT_TIMEOUT:
-                printf("Customer %d: has gone (waiting room is full)\n", GetCurrentThreadId());
-                break;
-        }
-    printf("Customer %d: is leaving (got a haircut) \n", GetCurrentThreadId());
-        Sleep(distr(eng));
 
     CloseHandle(barberReady);
     CloseHandle(accessWRSeats);
     CloseHandle(custReady);
+    CloseHandle(seatBelt);
     return 0;
 }
